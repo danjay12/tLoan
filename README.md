@@ -1,2 +1,2 @@
-# tBAG
+# tLoan
 Flashloan Implementaion in Solidity
