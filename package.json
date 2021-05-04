@@ -1,0 +1,11 @@
+{
+  "name": "tLoan",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/m4azeyy/tLoan.git",
+  "author": "liamkelsey <ethdev12@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@studydefi/money-legos": "^2.4.2"
+  }
+}
