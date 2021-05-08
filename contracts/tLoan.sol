@@ -1,9 +1,10 @@
-pragma solidity =0.6.6;
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity =0.8.4;
 
 import './UniswapV2Library.sol';
-import './interfaces/IUniswapV2Router02.sol';
-import './interfaces/IUniswapV2Pair.sol';
-import './interfaces/IERC20.sol';
+import 'interfaces/IUniswapV2Router02.sol';
+import 'interfaces/IUniswapV2Pair.sol';
+import 'interfaces/IERC20.sol';
 
 contract FlashLoaner {
   address immutable factory;
